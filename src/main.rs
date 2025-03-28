@@ -12,7 +12,7 @@ fn main() -> eframe::Result {
         "SpiroLab R edition",
         options,
         Box::new(|cc| Ok(Box::<SpiroApp>::default())),
-    );
+    )?;
     Ok(())
 }
 
@@ -168,10 +168,10 @@ fn average_angle(a: f32, b: f32) -> f32 {
 
 impl Spiro {
     fn draw(&self, painter: &egui::Painter, offset: [f32; 2]) {
-        let mut point1: Option<SpiroPoint> = None;
+        let mut point1: Option<SpiroPoint>;
         let mut point2: SpiroPoint = SpiroPoint::zeros();
         let mut dbg_nb_points = 0u32;
-        for _ in 0..=self.nb_points {
+        for i in 0..=self.nb_points {
             point1 = Some(point2);
             point2 = SpiroPoint::calc_point(
                 self.center,
@@ -194,6 +194,11 @@ impl Spiro {
                     if distance(tbc_point1.point, tbc_point2.point) < self.interpolate_distance_max
                     {
                         dbg_nb_points += 1;
+                        let t = i as f32 / self.nb_points as f32;
+                        let r = (1.0 - t) * 0.0 + t * 0.0; // Rouge reste 0
+                        let g = (1.0 - t) * 0.0 + t * 255.0; // Vert varie de 0 à 255
+                        let b = (1.0 - t) * 255.0 + t * 0.0; // Bleu varie de 255 à 0
+                        let color = egui::Color32::from_rgb(r as u8, g as u8, b as u8);
                         painter.line(
                             vec![
                                 egui::pos2(
@@ -205,7 +210,7 @@ impl Spiro {
                                     tbc_point2.point[1] + offset[1],
                                 ),
                             ],
-                            egui::Stroke::new(3.0, egui::Color32::GREEN),
+                            egui::Stroke::new(3.0, color),
                         );
                     } else {
                         let middle_point = SpiroPoint::calc_point(
@@ -221,6 +226,13 @@ impl Spiro {
                 }
             }
         }
+        // painter.text(
+        //     egui::pos2(0.0, 0.0),
+        //     egui::Align2::CENTER_CENTER,
+        //     format!("Spiro à {dbg_nb_points} points dessiné (interpolation comprise)"),
+        //     egui::FontId::monospace(10.0),
+        //     egui::Color32::WHITE,
+        // );
         println!("Spiro à {dbg_nb_points} points dessiné (interpolation comprise)");
     }
 

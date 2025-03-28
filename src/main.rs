@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 fn main() -> eframe::Result {
     env_logger::init();
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([750.0, 500.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -18,43 +18,94 @@ fn main() -> eframe::Result {
 
 #[derive(Debug)]
 struct SpiroApp {
-    spiros: Vec<Spiro>,
-}
-
-impl eframe::App for SpiroApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.heading("SpiroLab R edition");
-                let available_size = ui.available_size();
-                let painter_rect = egui::Rect::from_min_size(
-                    ui.min_rect().min,
-                    egui::vec2(available_size.x, available_size.y),
-                );
-
-                let painter = ui.painter_at(painter_rect);
-                for spiro in self.spiros.iter() {
-                    spiro.draw(&painter, [available_size[0] / 2.0, available_size[1] / 2.0]);
-                }
-            })
-        });
-    }
+    large_radius: f32,
+    small_radius: f32,
+    large_frequency: u32,
+    small_frequency: u32,
+    interpolate_distance_max: f32,
 }
 
 impl Default for SpiroApp {
     fn default() -> Self {
         Self {
-            spiros: vec![Spiro::from_frequency(
-                [0.0, 0.0],
-                200.0,
-                100.0,
-                20,
-                30,
-                20.0,
-            )],
+            large_radius: 200.0,
+            small_radius: 100.0,
+            large_frequency: 20,
+            small_frequency: 50,
+            interpolate_distance_max: 30.0,
         }
     }
 }
+
+impl eframe::App for SpiroApp {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("SpiroLab R edition");
+            let available_height = ui.available_height();
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_min_height(available_height);
+                    ui.set_width(200.0);
+                    ui.heading("Valeurs :");
+                    ui.add(
+                        egui::Slider::new(&mut self.large_radius, 10.0..=500.0)
+                            .text("large radius"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.small_radius, 10.0..=500.0)
+                            .text("small radius"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.large_frequency, 10..=1000)
+                            .text("large frequency"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.small_frequency, 10..=1000)
+                            .text("small frequency"),
+                    );
+                    ui.add(
+                        egui::Slider::new(&mut self.interpolate_distance_max, 1.0..=100.0)
+                            .text("resolution"),
+                    );
+                });
+                ui.vertical(|ui| {
+                    ui.set_min_height(available_height);
+                    let available_size = ui.available_size();
+                    let painter_rect = egui::Rect::from_min_size(ui.min_rect().min, available_size);
+
+                    let painter = ui.painter_at(painter_rect);
+                    Spiro::from_frequency(
+                        [0.0, 0.0],
+                        self.large_radius,
+                        self.small_radius,
+                        self.large_frequency,
+                        self.small_frequency,
+                        self.interpolate_distance_max,
+                    )
+                    .draw(
+                        &painter,
+                        [available_size[0] / 2.0 + 200.0, available_size[1] / 2.0],
+                    );
+                });
+            });
+        });
+    }
+}
+
+// impl Default for SpiroApp {
+//     fn default() -> Self {
+//         Self {
+//             spiros: vec![Spiro::from_frequency(
+//                 [0.0, 0.0],
+//                 200.0,
+//                 100.0,
+//                 20,
+//                 30,
+//                 20.0,
+//             )],
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, Copy)]
 struct SpiroPoint {
@@ -119,6 +170,7 @@ impl Spiro {
     fn draw(&self, painter: &egui::Painter, offset: [f32; 2]) {
         let mut point1: Option<SpiroPoint> = None;
         let mut point2: SpiroPoint = SpiroPoint::zeros();
+        let mut dbg_nb_points = 0u32;
         for _ in 0..=self.nb_points {
             point1 = Some(point2);
             point2 = SpiroPoint::calc_point(
@@ -141,6 +193,7 @@ impl Spiro {
                     let tbc_point2 = to_be_constructed.last().unwrap();
                     if distance(tbc_point1.point, tbc_point2.point) < self.interpolate_distance_max
                     {
+                        dbg_nb_points += 1;
                         painter.line(
                             vec![
                                 egui::pos2(
@@ -168,6 +221,7 @@ impl Spiro {
                 }
             }
         }
+        println!("Spiro à {dbg_nb_points} points dessiné (interpolation comprise)");
     }
 
     fn from_frequency(
